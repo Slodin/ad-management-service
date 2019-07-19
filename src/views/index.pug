@@ -1,0 +1,179 @@
+extends layout
+
+block content
+	div.container
+		div.header
+			button.btn.btn-primary.float-right(
+				style='margin-bottom: 10px'
+				data-toggle="modal" 
+				href="#myModal" 
+				data-target="#myModal"
+			) Create New
+		div.body
+				table.table.table-dark.table-striped
+					thead
+						tr.d-flex 
+							th.col-6 URL
+							th.col-2 Identifier
+							th.col-3 Link
+							th.col-1 Action
+					tbody
+						each val, index in ads
+							tr.d-flex
+								td.col-6(style="text-overflow: ellipsis; overflow: hidden;")
+									a.a-media-url(href="#" onclick="copyToClipboard(this)")=val.mediaUrl
+								td.col-2(style="text-overflow: ellipsis; overflow: hidden;")
+									a(href="#" onclick="copyToClipboard(this)")=val.identifier
+								td.col-3(style="text-overflow: ellipsis; overflow: hidden;")
+									a(href="#" onclick="copyToClipboard(this)")=val.adLink
+								td.col-1
+									button.btn.btn-danger.delete-ad(value=val._id) Delete
+	div.modal.faded#myModal(tabindex="-1" role="dialog")
+		div.modal-dialog(role="document")
+			div.modal-content
+				div.modal-header
+					h5 New Advertisement
+					button.close(type="button" data-dismiss="modal" aria-label="close")
+						span(aria-hidden="true") &times;
+				div.modal-body
+					form#ad-form
+						div.form-group
+							label(for="identifier") Identifier 
+							input.form-control#identifier(type="text" name="identifier")
+							small.form-text.text-muted Must be unique
+						div.form-group
+							label(for="link") Link
+							input.form-control#link(type="text" name="adLink")
+							small.form-text.text-muted Used to supply URL to openable ads
+						div.form-group
+							label(for="media-url") Media Url
+							input.form-control#media-url(type="text" name="mediaUrl")
+							small.form-text.text-muted Must be a direct url to your picture or video
+						//- div.form-group
+						//- 	label(for="file-upload") Image Upload
+						//- 	input(type="file").form-control#file-upload
+						//- 	img.form-control#preview(src="")
+				div.modal-footer
+					button.btn.btn-secondary(data-dismiss="modal") Close
+					button.btn.btn-primary#save-form Save
+	div.hover-content
+		div.display-image
+			img.img-thumbnail#preview-media(src="")
+	script.
+		$(document).ready(()=>{
+			//Create new ad
+			$('#save-form').click(()=>{
+				let formJson = getFormData($('form'));
+				formJson.mediaType = 0;
+				$.ajax({
+					url: `http://localhost:3000/api/v1/ads`,
+					method: 'POST',
+					dataType: 'json',
+					data: formJson
+				}).done((data)=>{
+					//console.log(data);
+					$('#myModal').modal('hide');
+					Swal.fire({
+						type: 'success',
+						title: 'Advertisement Created!'
+					}).then((result) => {
+						if(result.value){
+							window.location.reload();
+						}
+					});
+				}).fail((err)=>{
+					//console.log(err.responseJSON)
+					Swal.fire({
+						type: 'error',
+						title: err.responseJSON.error_message
+					})
+				})
+			});
+			//Remove ad
+			$('.delete-ad').click((event)=>{
+				Swal.fire({
+					type: 'warning',
+					title: 'Remove this advertisement?',
+					text: 'This action cannot be reversed!',
+					showCancelButton: true
+				}).then((result)=>{
+					if(result.value){
+						$.ajax({
+							url: `http://localhost:3000/api/v1/ads`,
+							method: 'DELETE',
+							data: {id: event.currentTarget.value}
+						}).done((data)=>{
+							Swal.fire({
+								type: 'success',
+								title: 'Advertisement Removed!'
+							}).then((result) => {
+								if(result.value){
+									window.location.reload();
+								}
+							});
+						}).fail((err)=>{
+							console.log(err);
+							Swal.fire({
+								type: 'error',
+								title: err.responseJSON.error_message
+							})
+						})
+					}
+				})
+			})
+		});
+		
+		$('#myModal').on('hide.bs.modal', function () {
+			$('#ad-form').trigger('reset');
+		})
+
+		$('.a-media-url').hover((event)=> {
+			//mouseenter
+			let {clientX, clientY} = event;
+			let displayElement = $('.hover-content');
+			$('#preview-media').attr('src', event.currentTarget.text)
+			displayElement.css({
+				top: `${clientY+10}px`, 
+				left: `${clientX + 50}px`, 
+				display: 'block'
+			});
+		}, ()=> {
+			//mouseleave
+			$('.hover-content').css('display', 'none');
+		})
+
+		function getFormData($form){
+			let unindexed_array = $form.serializeArray();
+			let indexed_array = {};
+
+			$.map(unindexed_array, function(n, i){
+					indexed_array[n['name']] = n['value'];
+			});
+
+			return indexed_array;
+		}
+
+		const copyToClipboard = (copyText) => {
+			let textArea = document.createElement("textarea");
+			textArea.value = copyText.text;
+			document.body.appendChild(textArea);
+			textArea.select();
+			document.execCommand("copy");
+			alert("Copied the text: " + textArea.value);
+			textArea.remove();
+		}
+
+		//NO NEED UPLOAD FUNCTIONS
+		//- $(document).on('change', '#file-upload', (event)=> {
+		//- 	let src = document.getElementById("file-upload");
+		//- 	let target = $('#preview');
+		//- 	showImage($('#file-upload'), target);
+		//- })
+
+		//- function showImage(input, target) {
+		//- 	if(input[0] && input[0].files[0]){
+		//- 		let fr=new FileReader();
+		//- 		fr.onload = function(e) {target.attr('src', e.target.result)};
+		//- 		fr.readAsDataURL(input[0].files[0]);
+		//- 	}
+		//- }
